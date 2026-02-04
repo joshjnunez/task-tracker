@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { Task } from "@/lib/types";
-import { getSnapshot, subscribe } from "@/lib/dataProvider";
+import { getSnapshot, initDataProvider, subscribe } from "@/lib/dataProvider";
 
 type AppDataContextValue = {
   hydrated: boolean;
@@ -20,21 +20,27 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [accounts, setAccounts] = useState<string[]>([]);
 
   useEffect(() => {
-    const snap = getSnapshot();
-    queueMicrotask(() => {
+    let unsub: (() => void) | null = null;
+
+    void initDataProvider().finally(() => {
+      const snap = getSnapshot();
       setTasks(snap.tasks);
       setAEs(snap.aes);
       setAccounts(snap.accounts);
       setHydrated(snap.hydrated);
+
+      unsub = subscribe(() => {
+        const next = getSnapshot();
+        setTasks(next.tasks);
+        setAEs(next.aes);
+        setAccounts(next.accounts);
+        setHydrated(next.hydrated);
+      });
     });
 
-    return subscribe(() => {
-      const next = getSnapshot();
-      setTasks(next.tasks);
-      setAEs(next.aes);
-      setAccounts(next.accounts);
-      setHydrated(next.hydrated);
-    });
+    return () => {
+      unsub?.();
+    };
   }, []);
 
   const value = useMemo<AppDataContextValue>(

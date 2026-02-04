@@ -48,7 +48,6 @@ let snapshot: AppSnapshot = {
 };
 
 const listeners = new Set<() => void>();
-let didInit = false;
 let initPromise: Promise<void> | null = null;
 
 let aeByKey = new Map<string, AE>();
@@ -58,41 +57,13 @@ function notify() {
   for (const l of listeners) l();
 }
 
-function ensureInit() {
-  if (didInit) return;
-  didInit = true;
-
-  initPromise = (async () => {
-    const [aes, accounts, tasks] = await Promise.all([
-      apiJson<AE[]>("/api/aes"),
-      apiJson<Account[]>("/api/accounts"),
-      apiJson<ApiTask[]>("/api/tasks"),
-    ]);
-
-    aeByKey = new Map(aes.map((a) => [normalizeKey(a.name), a]));
-    accountByKey = new Map(accounts.map((a) => [normalizeKey(a.name), a]));
-
-    snapshot = {
-      hydrated: true,
-      tasks: tasks,
-      aes: aes.map((a) => a.name),
-      accounts: accounts.map((a) => a.name),
-    };
-
-    notify();
-  })().catch((err: unknown) => {
-    console.error("Failed to initialize dataProvider", err);
-  });
-}
-
 function commit(next: AppSnapshot) {
   snapshot = next;
   notify();
 }
 
 async function ensureHydrated(): Promise<void> {
-  ensureInit();
-  await initPromise;
+  await initDataProvider();
 }
 
 type ApiError = {
@@ -101,12 +72,21 @@ type ApiError = {
   body?: unknown;
 };
 
+function getApiErrorMessage(err: unknown): string {
+  if (!err || typeof err !== "object") return "Unknown error";
+  if ("message" in err && typeof err.message === "string") return err.message;
+  return "Unknown error";
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
 async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
+  const url =
+    typeof window === "undefined" ? path : new URL(path, window.location.origin).toString();
+
+  const res = await fetch(url, {
     ...init,
     headers: {
       "content-type": "application/json",
@@ -125,6 +105,43 @@ async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   return body as T;
+}
+
+async function safeApiJson<T>(path: string, fallback: T): Promise<T> {
+  try {
+    return await apiJson<T>(path);
+  } catch (e: unknown) {
+    // Keep the app rendering even if the API is temporarily unavailable.
+    console.warn("dataProvider init failed for", path, e);
+    return fallback;
+  }
+}
+
+export async function initDataProvider(): Promise<void> {
+  if (typeof window === "undefined") return;
+  if (initPromise) return initPromise;
+
+  initPromise = (async () => {
+    const [aes, accounts, tasks] = await Promise.all([
+      safeApiJson<AE[]>("/api/aes", []),
+      safeApiJson<Account[]>("/api/accounts", []),
+      safeApiJson<ApiTask[]>("/api/tasks", []),
+    ]);
+
+    aeByKey = new Map(aes.map((a) => [normalizeKey(a.name), a]));
+    accountByKey = new Map(accounts.map((a) => [normalizeKey(a.name), a]));
+
+    snapshot = {
+      hydrated: true,
+      tasks,
+      aes: aes.map((a) => a.name),
+      accounts: accounts.map((a) => a.name),
+    };
+
+    notify();
+  })();
+
+  return initPromise;
 }
 
 async function ensureAEIdByName(name: string): Promise<string> {
@@ -194,7 +211,6 @@ async function ensureAccountIdByName(name: string): Promise<string> {
 }
 
 export function subscribe(listener: () => void): () => void {
-  ensureInit();
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
@@ -202,7 +218,6 @@ export function subscribe(listener: () => void): () => void {
 }
 
 export function getSnapshot(): AppSnapshot {
-  ensureInit();
   return snapshot;
 }
 
@@ -214,20 +229,33 @@ export async function getTasks(filters: TaskFilters): Promise<Task[]> {
 export async function createTask(input: TaskCreateInput): Promise<Task> {
   await ensureHydrated();
 
-  const ae_id = await ensureAEIdByName(input.ae);
-  const account_id = input.account ? await ensureAccountIdByName(input.account) : undefined;
+  const accountName = input.account && input.account.trim().length ? input.account.trim() : "Unassigned";
+  // Ensure these exist in the local caches for dropdowns without forcing the tasks API to accept ids.
+  await ensureAEIdByName(input.ae);
+  await ensureAccountIdByName(accountName);
 
-  const created = await apiJson<ApiTask>("/api/tasks", {
-    method: "POST",
-    body: JSON.stringify({
-      title: input.title,
-      description: input.description,
-      ae_id,
-      account_id,
-      status: input.status,
-      due_date: input.dueDate,
-    }),
-  });
+  let created: ApiTask;
+  try {
+    created = await apiJson<ApiTask>("/api/tasks", {
+      method: "POST",
+      body: JSON.stringify({
+        title: input.title,
+        description: input.description,
+        ae: input.ae,
+        account: accountName,
+        status: input.status,
+        due_date: input.dueDate,
+      }),
+    });
+  } catch (e: unknown) {
+    const err = e as ApiError;
+    console.error("dataProvider.createTask failed", {
+      status: err.status,
+      message: err.message,
+      body: err.body,
+    });
+    throw new Error(getApiErrorMessage(e));
+  }
 
   commit({ ...snapshot, tasks: [created, ...snapshot.tasks] });
   return created;

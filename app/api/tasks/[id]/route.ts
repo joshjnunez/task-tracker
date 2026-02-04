@@ -17,6 +17,7 @@ type DbTaskRow = {
 };
 
 function toApiTask(row: DbTaskRow) {
+  const dueDate = row.due_date ? row.due_date.slice(0, 10) : undefined;
   return {
     id: row.id,
     title: row.title,
@@ -24,7 +25,7 @@ function toApiTask(row: DbTaskRow) {
     ae: row.ae?.name ?? "",
     account: row.account?.name ?? "",
     status: row.status,
-    dueDate: row.due_date ?? undefined,
+    dueDate,
     createdAt: row.created_at,
     completedAt: row.completed_at,
   };

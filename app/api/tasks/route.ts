@@ -17,6 +17,7 @@ type DbTaskRow = {
 };
 
 function toApiTask(row: DbTaskRow) {
+  const dueDate = row.due_date ? row.due_date.slice(0, 10) : undefined;
   return {
     id: row.id,
     title: row.title,
@@ -24,7 +25,7 @@ function toApiTask(row: DbTaskRow) {
     ae: row.ae?.name ?? "",
     account: row.account?.name ?? "",
     status: row.status,
-    dueDate: row.due_date ?? undefined,
+    dueDate,
     createdAt: row.created_at,
     completedAt: row.completed_at,
   };
@@ -52,7 +53,9 @@ function sortTasks(rows: DbTaskRow[]): DbTaskRow[] {
 const createTaskSchema = z.object({
   title: z.string().trim().min(1, "title is required"),
   description: z.string().trim().optional(),
-  ae_id: z.string().uuid("ae_id must be a UUID"),
+  ae: z.string().trim().min(1, "ae is required").optional(),
+  account: z.string().trim().min(1, "account is required").optional(),
+  ae_id: z.string().uuid("ae_id must be a UUID").optional(),
   account_id: z.string().uuid("account_id must be a UUID").optional(),
   status: z.enum(["BACKLOG", "IN_PROGRESS", "WAITING", "DONE"]),
   due_date: z
@@ -60,6 +63,46 @@ const createTaskSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "due_date must be YYYY-MM-DD")
     .optional(),
 });
+
+let didLogCreateBody = false;
+
+async function resolveByName(params: {
+  table: "aes" | "accounts";
+  name: string;
+}): Promise<{ id: string; name: string } | null> {
+  const { data, error } = await supabase
+    .from(params.table)
+    .select("id,name")
+    .ilike("name", params.name)
+    .maybeSingle<{ id: string; name: string }>();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data ?? null;
+}
+
+async function upsertByName(params: {
+  table: "aes" | "accounts";
+  name: string;
+  label: "AE" | "Account";
+}): Promise<{ id: string; name: string }> {
+  const existing = await resolveByName({ table: params.table, name: params.name });
+  if (existing) return existing;
+
+  const { data, error } = await supabase
+    .from(params.table)
+    .insert({ name: params.name })
+    .select("id,name")
+    .single<{ id: string; name: string }>();
+
+  if (error) {
+    throw new Error(`${params.label} create failed: ${error.message}`);
+  }
+
+  return data;
+}
 
 export async function GET() {
   const { data, error } = await supabase
@@ -88,8 +131,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
+  if (!didLogCreateBody) {
+    didLogCreateBody = true;
+    console.log("POST /api/tasks body (first request)", json);
+  }
+
   const parsed = createTaskSchema.safeParse(json);
   if (!parsed.success) {
+    console.warn("POST /api/tasks validation error", parsed.error.issues);
     return NextResponse.json(
       { error: "Validation error", issues: parsed.error.issues },
       { status: 400 },
@@ -98,6 +147,49 @@ export async function POST(req: Request) {
 
   const payload = parsed.data;
 
+  let ae_id: string | undefined;
+  let account_id: string | undefined;
+
+  try {
+    if (payload.ae_id) {
+      ae_id = payload.ae_id;
+    } else if (payload.ae) {
+      ae_id = (await upsertByName({ table: "aes", name: payload.ae.trim(), label: "AE" })).id;
+    }
+
+    if (payload.account_id) {
+      account_id = payload.account_id;
+    } else if (payload.account) {
+      account_id = (
+        await upsertByName({
+          table: "accounts",
+          name: payload.account.trim(),
+          label: "Account",
+        })
+      ).id;
+    }
+  } catch (e: unknown) {
+    const msg = e && typeof e === "object" && "message" in e ? String(e.message) : "Unknown error";
+    return NextResponse.json(
+      { error: "Failed to resolve AE/Account", detail: msg },
+      { status: 500 },
+    );
+  }
+
+  if (!ae_id) {
+    return NextResponse.json(
+      { error: "Validation error", detail: "ae is required" },
+      { status: 400 },
+    );
+  }
+
+  if (!account_id) {
+    return NextResponse.json(
+      { error: "Validation error", detail: "account is required" },
+      { status: 400 },
+    );
+  }
+
   const completed_at = payload.status === "DONE" ? new Date().toISOString() : null;
 
   const { data, error } = await supabase
@@ -105,8 +197,8 @@ export async function POST(req: Request) {
     .insert({
       title: payload.title,
       description: payload.description ?? null,
-      ae_id: payload.ae_id,
-      account_id: payload.account_id ?? null,
+      ae_id,
+      account_id,
       status: payload.status,
       due_date: payload.due_date ?? null,
       completed_at,
@@ -117,6 +209,12 @@ export async function POST(req: Request) {
     .single<DbTaskRow>();
 
   if (error) {
+    console.error("POST /api/tasks insert failed", {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    });
     return NextResponse.json(
       { error: "Failed to create task", detail: error.message },
       { status: 500 },

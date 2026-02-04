@@ -84,34 +84,40 @@ export default function Home() {
   };
 
   const upsertFromDraft = async (draft: TaskDraft) => {
-    const dueDate = draft.dueDate.trim().length ? draft.dueDate.trim() : undefined;
-    const description = draft.description.trim().length ? draft.description.trim() : undefined;
-    const account = draft.account.trim().length ? draft.account.trim() : undefined;
+    try {
+      const dueDate = draft.dueDate.trim().length ? draft.dueDate.trim() : undefined;
+      const description = draft.description.trim().length ? draft.description.trim() : undefined;
+      const account = draft.account.trim().length ? draft.account.trim() : undefined;
 
-    if (editingTask) {
-      await updateTask(editingTask.id, {
+      if (editingTask) {
+        await updateTask(editingTask.id, {
+          title: draft.title,
+          description,
+          ae: draft.ae,
+          account: draft.account,
+          dueDate,
+          status: draft.status,
+        });
+        push({ kind: "success", title: "Task updated" });
+        closeComposer();
+        return;
+      }
+
+      await createTask({
         title: draft.title,
         description,
         ae: draft.ae,
-        account: draft.account,
-        dueDate,
+        account,
         status: draft.status,
+        dueDate,
       });
-      push({ kind: "success", title: "Task updated" });
+      push({ kind: "success", title: "Task created" });
       closeComposer();
-      return;
+    } catch (e: unknown) {
+      const msg = e && typeof e === "object" && "message" in e ? String(e.message) : "Unknown error";
+      push({ kind: "error", title: "Failed to save task", message: msg });
+      console.error("upsertFromDraft failed", e);
     }
-
-    await createTask({
-      title: draft.title,
-      description,
-      ae: draft.ae,
-      account,
-      status: draft.status,
-      dueDate,
-    });
-    push({ kind: "success", title: "Task created" });
-    closeComposer();
   };
 
   const updateStatus = (task: Task, status: TaskStatus) => {
