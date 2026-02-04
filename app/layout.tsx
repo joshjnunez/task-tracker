@@ -28,7 +28,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <footer className="mx-auto w-full max-w-6xl px-4 pb-6 text-center text-xs text-zinc-400 sm:px-6">
+            Made by Josh Nunez
+          </footer>
+        </Providers>
       </body>
     </html>
   );

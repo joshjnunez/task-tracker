@@ -20,6 +20,7 @@ import {
   filterTasks,
   sortTasks,
 } from "@/lib/taskLogic";
+import { getChicagoWeekRange, isOverdue } from "@/lib/dateRanges";
 
 function mergeUnknowns(managed: string[], referenced: string[]): string[] {
   const set = new Set(managed);
@@ -32,13 +33,15 @@ function mergeUnknowns(managed: string[], referenced: string[]): string[] {
 
 export default function Home() {
   const { push } = useToast();
-  const { tasks, aes, accounts } = useAppData();
+  const { tasks, aes, aeColors, accounts } = useAppData();
 
   const [filters, setFilters] = useState<TaskFilters>({
     query: "",
     ae: "ALL",
     account: "ALL",
     status: "ALL",
+    dueThisWeek: false,
+    overdue: false,
   });
 
   const [composerOpen, setComposerOpen] = useState(false);
@@ -53,8 +56,37 @@ export default function Home() {
     [accounts, tasks],
   );
 
-  const filteredTasks = useMemo(() => filterTasks(tasks, filters), [tasks, filters]);
+  const filteredTasks = useMemo(() => {
+    const base = filterTasks(tasks, filters);
+
+    const shouldExcludeDoneByDefault = (filters.dueThisWeek || filters.overdue) && filters.status === "ALL";
+    const nonDone = shouldExcludeDoneByDefault ? base.filter((t) => t.status !== "DONE") : base;
+
+    if (filters.dueThisWeek) {
+      const { start, end } = getChicagoWeekRange();
+      return nonDone.filter((t) => {
+        if (!t.dueDate) return false;
+        if (isOverdue(t)) return false;
+        return t.dueDate >= start && t.dueDate < end;
+      });
+    }
+
+    if (filters.overdue) {
+      return nonDone.filter((t) => isOverdue(t));
+    }
+
+    return nonDone;
+  }, [tasks, filters]);
+
   const { active, completed } = useMemo(() => sortTasks(filteredTasks), [filteredTasks]);
+
+  const groupedActive = useMemo(() => {
+    if (!filters.dueThisWeek) return null;
+
+    return {
+      dueThisWeek: active,
+    };
+  }, [active, filters.dueThisWeek]);
 
   const openNew = () => {
     setEditingTask(null);
@@ -153,7 +185,14 @@ export default function Home() {
               accounts={mergedAccounts}
               onChange={setFilters}
               onClear={() =>
-                setFilters({ query: "", ae: "ALL", account: "ALL", status: "ALL" })
+                setFilters({
+                  query: "",
+                  ae: "ALL",
+                  account: "ALL",
+                  status: "ALL",
+                  dueThisWeek: false,
+                  overdue: false,
+                })
               }
             />
           </div>
@@ -165,7 +204,14 @@ export default function Home() {
               accounts={mergedAccounts}
               onChange={setFilters}
               onClear={() =>
-                setFilters({ query: "", ae: "ALL", account: "ALL", status: "ALL" })
+                setFilters({
+                  query: "",
+                  ae: "ALL",
+                  account: "ALL",
+                  status: "ALL",
+                  dueThisWeek: false,
+                  overdue: false,
+                })
               }
             />
           </div>
@@ -175,6 +221,9 @@ export default function Home() {
           <TaskList
             active={active}
             completed={completed}
+            groupedActive={groupedActive}
+            groupByDueThisWeek={filters.dueThisWeek}
+            aeColors={aeColors}
             onEdit={openEdit}
             onDelete={askDelete}
             onStatusChange={updateStatus}

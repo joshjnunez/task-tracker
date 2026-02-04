@@ -54,9 +54,9 @@ const createTaskSchema = z.object({
   title: z.string().trim().min(1, "title is required"),
   description: z.string().trim().optional(),
   ae: z.string().trim().min(1, "ae is required").optional(),
-  account: z.string().trim().min(1, "account is required").optional(),
+  account: z.string().trim().optional(),
   ae_id: z.string().uuid("ae_id must be a UUID").optional(),
-  account_id: z.string().uuid("account_id must be a UUID").optional(),
+  account_id: z.string().uuid("account_id must be a UUID").optional().nullable(),
   status: z.enum(["BACKLOG", "IN_PROGRESS", "WAITING", "DONE"]),
   due_date: z
     .string()
@@ -159,7 +159,7 @@ export async function POST(req: Request) {
 
     if (payload.account_id) {
       account_id = payload.account_id;
-    } else if (payload.account) {
+    } else if (payload.account && payload.account.trim().length) {
       account_id = (
         await upsertByName({
           table: "accounts",
@@ -183,13 +183,6 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!account_id) {
-    return NextResponse.json(
-      { error: "Validation error", detail: "account is required" },
-      { status: 400 },
-    );
-  }
-
   const completed_at = payload.status === "DONE" ? new Date().toISOString() : null;
 
   const { data, error } = await supabase
@@ -198,7 +191,7 @@ export async function POST(req: Request) {
       title: payload.title,
       description: payload.description ?? null,
       ae_id,
-      account_id,
+      account_id: account_id ?? null,
       status: payload.status,
       due_date: payload.due_date ?? null,
       completed_at,

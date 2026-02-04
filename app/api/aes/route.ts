@@ -2,36 +2,68 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { supabase } from "@/lib/supabase";
+import { AE_MUTED_PALETTE } from "@/lib/aeColors";
 
 const createSchema = z.object({
   name: z.string().trim().min(1, "name is required"),
+  color: z.string().trim().optional(),
 });
 
 const deleteQuerySchema = z.object({
   id: z.string().uuid("id must be a UUID"),
 });
 
-type AE = { id: string; name: string };
+type AE = { id: string; name: string; color?: string | null };
+
+function isMissingColumn(error: { message?: string; code?: string } | null | undefined): boolean {
+  const msg = (error?.message ?? "").toLowerCase();
+  return msg.includes("column") && msg.includes("color");
+}
 
 function isUniqueViolation(error: { code?: string } | null | undefined): boolean {
   return error?.code === "23505";
 }
 
 export async function GET() {
-  const { data, error } = await supabase
+  const withColor = await supabase
     .from("aes")
-    .select("id,name")
+    .select("id,name,color")
     .order("name", { ascending: true })
     .returns<AE[]>();
 
-  if (error) {
-    return NextResponse.json(
-      { error: "Failed to fetch AEs", detail: error.message },
-      { status: 500 },
-    );
+  if (!withColor.error) {
+    return NextResponse.json(withColor.data ?? []);
   }
 
-  return NextResponse.json(data ?? []);
+  if (isMissingColumn(withColor.error)) {
+    const fallback = await supabase
+      .from("aes")
+      .select("id,name")
+      .order("name", { ascending: true })
+      .returns<{ id: string; name: string }[]>();
+
+    if (fallback.error) {
+      console.error("/api/aes GET fallback failed", {
+        message: fallback.error.message,
+        code: (fallback.error as unknown as { code?: string }).code,
+      });
+      return NextResponse.json(
+        { error: "Failed to fetch AEs", detail: fallback.error.message },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json((fallback.data ?? []).map((r) => ({ ...r, color: null })));
+  }
+
+  console.error("/api/aes GET failed", {
+    message: withColor.error.message,
+    code: (withColor.error as unknown as { code?: string }).code,
+  });
+  return NextResponse.json(
+    { error: "Failed to fetch AEs", detail: withColor.error.message },
+    { status: 500 },
+  );
 }
 
 export async function POST(req: Request) {
@@ -51,6 +83,7 @@ export async function POST(req: Request) {
   }
 
   const name = parsed.data.name.trim();
+  const requestedColor = parsed.data.color?.trim();
 
   const { data: existing, error: existingError } = await supabase
     .from("aes")
@@ -69,16 +102,66 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "AE already exists" }, { status: 409 });
   }
 
-  const { data, error } = await supabase
+  let color = requestedColor;
+  if (!color) {
+    const { data: existingColors } = await supabase
+      .from("aes")
+      .select("color")
+      .returns<{ color?: string | null }[]>();
+
+    const used = new Set(
+      (existingColors ?? [])
+        .map((r) => (r.color ?? "").trim())
+        .filter((v) => v.length > 0),
+    );
+
+    color = AE_MUTED_PALETTE.find((c) => !used.has(c)) ?? AE_MUTED_PALETTE[0];
+  }
+
+  const insertedWithColor = await supabase
     .from("aes")
-    .insert({ name })
-    .select("id,name")
+    .insert({ name, color })
+    .select("id,name,color")
     .single<AE>();
+
+  if (insertedWithColor.error && isMissingColumn(insertedWithColor.error)) {
+    const insertedNoColor = await supabase
+      .from("aes")
+      .insert({ name })
+      .select("id,name")
+      .single<{ id: string; name: string }>();
+
+    if (insertedNoColor.error) {
+      if (isUniqueViolation(insertedNoColor.error)) {
+        return NextResponse.json({ error: "AE already exists" }, { status: 409 });
+      }
+      console.error("/api/aes POST fallback failed", {
+        message: insertedNoColor.error.message,
+        code: (insertedNoColor.error as unknown as { code?: string }).code,
+      });
+      return NextResponse.json(
+        { error: "Failed to create AE", detail: insertedNoColor.error.message },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json(
+      { ...insertedNoColor.data, color },
+      { status: 201 },
+    );
+  }
+
+  const { data, error } = insertedWithColor;
 
   if (error) {
     if (isUniqueViolation(error)) {
       return NextResponse.json({ error: "AE already exists" }, { status: 409 });
     }
+
+    console.error("/api/aes POST failed", {
+      message: error.message,
+      code: (error as unknown as { code?: string }).code,
+    });
 
     return NextResponse.json(
       { error: "Failed to create AE", detail: error.message },

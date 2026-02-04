@@ -14,7 +14,7 @@ import {
 } from "@/lib/dataProvider";
 
 export default function ManagePage() {
-  const { tasks, aes, accounts } = useAppData();
+  const { tasks, aes, aeColors, accounts } = useAppData();
   const { push } = useToast();
 
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -41,8 +41,14 @@ export default function ManagePage() {
   }, [tasks]);
 
   const addAE = async (value: string) => {
-    await createAE(value);
-    push({ kind: "success", title: "AE added" });
+    try {
+      await createAE(value);
+      push({ kind: "success", title: "AE added" });
+    } catch (e: unknown) {
+      const msg = e && typeof e === "object" && "message" in e ? String(e.message) : "Unknown error";
+      push({ kind: "error", title: "Failed to add AE", message: msg });
+      console.error("createAE failed", e);
+    }
   };
 
   const addAccount = async (value: string) => {
@@ -57,8 +63,14 @@ export default function ManagePage() {
       setConfirmOpen(true);
       return;
     }
-    await deleteAE(value);
-    push({ kind: "success", title: "AE removed" });
+    try {
+      await deleteAE(value);
+      push({ kind: "success", title: "AE removed" });
+    } catch (e: unknown) {
+      const msg = e && typeof e === "object" && "message" in e ? String(e.message) : "Unknown error";
+      push({ kind: "error", title: "Failed to remove AE", message: msg });
+      console.error("deleteAE failed", e);
+    }
   };
 
   const removeAccount = async (value: string) => {
@@ -81,6 +93,7 @@ export default function ManagePage() {
           <ManageList
             title="AEs"
             items={aes}
+            colors={aeColors}
             inUseCount={aeInUseCount}
             onAdd={addAE}
             onRemove={removeAE}

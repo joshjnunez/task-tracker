@@ -8,6 +8,7 @@ type AppDataContextValue = {
   hydrated: boolean;
   tasks: Task[];
   aes: string[];
+  aeColors: Record<string, string>;
   accounts: string[];
 };
 
@@ -17,6 +18,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [aes, setAEs] = useState<string[]>([]);
+  const [aeColors, setAEColors] = useState<Record<string, string>>({});
   const [accounts, setAccounts] = useState<string[]>([]);
 
   useEffect(() => {
@@ -26,6 +28,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       const snap = getSnapshot();
       setTasks(snap.tasks);
       setAEs(snap.aes);
+      setAEColors(snap.aeColors);
       setAccounts(snap.accounts);
       setHydrated(snap.hydrated);
 
@@ -33,6 +36,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         const next = getSnapshot();
         setTasks(next.tasks);
         setAEs(next.aes);
+        setAEColors(next.aeColors);
         setAccounts(next.accounts);
         setHydrated(next.hydrated);
       });
@@ -44,8 +48,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<AppDataContextValue>(
-    () => ({ hydrated, tasks, aes, accounts }),
-    [hydrated, tasks, aes, accounts],
+    () => ({ hydrated, tasks, aes, aeColors, accounts }),
+    [hydrated, tasks, aes, aeColors, accounts],
   );
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;

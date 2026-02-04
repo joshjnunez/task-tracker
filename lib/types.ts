@@ -17,4 +17,6 @@ export type TaskFilters = {
   ae: string;
   account: string;
   status: "ALL" | TaskStatus;
+  dueThisWeek: boolean;
+  overdue: boolean;
 };

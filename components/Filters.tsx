@@ -90,6 +90,48 @@ export function Filters({
           </button>
         </div>
       </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            const nextDueThisWeek = !filters.dueThisWeek;
+            onChange({
+              ...filters,
+              dueThisWeek: nextDueThisWeek,
+              overdue: nextDueThisWeek ? false : filters.overdue,
+            });
+          }}
+          className={
+            "h-9 rounded-full border px-3 text-sm font-medium transition " +
+            (filters.dueThisWeek
+              ? "border-zinc-900 bg-zinc-900 text-white"
+              : "border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50")
+          }
+        >
+          Due this week
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            const nextOverdue = !filters.overdue;
+            onChange({
+              ...filters,
+              overdue: nextOverdue,
+              dueThisWeek: nextOverdue ? false : filters.dueThisWeek,
+            });
+          }}
+          className={
+            "h-9 rounded-full border px-3 text-sm font-medium transition " +
+            (filters.overdue
+              ? "border-zinc-900 bg-zinc-900 text-white"
+              : "border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50")
+          }
+        >
+          Overdue
+        </button>
+      </div>
     </div>
   );
 }

@@ -11,6 +11,8 @@ function activeFilterCount(filters: TaskFilters): number {
   if (filters.ae !== "ALL") count += 1;
   if (filters.account !== "ALL") count += 1;
   if (filters.status !== "ALL") count += 1;
+  if (filters.dueThisWeek) count += 1;
+  if (filters.overdue) count += 1;
   return count;
 }
 
@@ -63,6 +65,42 @@ export function MobileFilters({
         onClose={() => setOpen(false)}
       >
         <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-2">
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2">
+              <div className="text-sm font-medium text-zinc-800">Due this week</div>
+              <input
+                type="checkbox"
+                checked={filters.dueThisWeek}
+                onChange={(e) => {
+                  const nextDueThisWeek = e.target.checked;
+                  onChange({
+                    ...filters,
+                    dueThisWeek: nextDueThisWeek,
+                    overdue: nextDueThisWeek ? false : filters.overdue,
+                  });
+                }}
+                className="h-4 w-4 accent-zinc-900"
+              />
+            </label>
+
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2">
+              <div className="text-sm font-medium text-zinc-800">Overdue</div>
+              <input
+                type="checkbox"
+                checked={filters.overdue}
+                onChange={(e) => {
+                  const nextOverdue = e.target.checked;
+                  onChange({
+                    ...filters,
+                    overdue: nextOverdue,
+                    dueThisWeek: nextOverdue ? false : filters.dueThisWeek,
+                  });
+                }}
+                className="h-4 w-4 accent-zinc-900"
+              />
+            </label>
+          </div>
+
           <label>
             <div className="text-xs font-medium text-zinc-600">AE</div>
             <select

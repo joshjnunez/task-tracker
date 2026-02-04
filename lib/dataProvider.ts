@@ -1,5 +1,6 @@
 import type { Task, TaskFilters, TaskStatus } from "@/lib/types";
 import { filterTasks } from "@/lib/taskLogic";
+import { resolveAEColor } from "@/lib/aeColors";
 
 export type TaskCreateInput = {
   title: string;
@@ -18,10 +19,11 @@ type AppSnapshot = {
   hydrated: boolean;
   tasks: Task[];
   aes: string[];
+  aeColors: Record<string, string>;
   accounts: string[];
 };
 
-type AE = { id: string; name: string };
+type AE = { id: string; name: string; color?: string | null };
 type Account = { id: string; name: string };
 
 type ApiTask = {
@@ -44,6 +46,7 @@ let snapshot: AppSnapshot = {
   hydrated: false,
   tasks: [],
   aes: [],
+  aeColors: {},
   accounts: [],
 };
 
@@ -131,10 +134,16 @@ export async function initDataProvider(): Promise<void> {
     aeByKey = new Map(aes.map((a) => [normalizeKey(a.name), a]));
     accountByKey = new Map(accounts.map((a) => [normalizeKey(a.name), a]));
 
+    const aeColors: Record<string, string> = {};
+    for (const ae of aes) {
+      aeColors[ae.name] = resolveAEColor(ae.name, ae.color);
+    }
+
     snapshot = {
       hydrated: true,
       tasks,
       aes: aes.map((a) => a.name),
+      aeColors,
       accounts: accounts.map((a) => a.name),
     };
 
@@ -164,14 +173,22 @@ async function ensureAEIdByName(name: string): Promise<string> {
     const found = aeByKey.get(key);
     if (!found) throw e;
 
-    commit({ ...snapshot, aes: aes.map((a) => a.name) });
+    const aeColors: Record<string, string> = {};
+    for (const ae of aes) {
+      aeColors[ae.name] = resolveAEColor(ae.name, ae.color);
+    }
+    commit({ ...snapshot, aes: aes.map((a) => a.name), aeColors });
     return found.id;
   }
 
   aeByKey.set(normalizeKey(created.name), created);
+
+  const nextColors = { ...snapshot.aeColors };
+  nextColors[created.name] = resolveAEColor(created.name, created.color);
   commit({
     ...snapshot,
     aes: [...snapshot.aes, created.name].sort((a, b) => a.localeCompare(b)),
+    aeColors: nextColors,
   });
 
   return created.id;
@@ -229,10 +246,10 @@ export async function getTasks(filters: TaskFilters): Promise<Task[]> {
 export async function createTask(input: TaskCreateInput): Promise<Task> {
   await ensureHydrated();
 
-  const accountName = input.account && input.account.trim().length ? input.account.trim() : "Unassigned";
+  const accountName = input.account && input.account.trim().length ? input.account.trim() : undefined;
   // Ensure these exist in the local caches for dropdowns without forcing the tasks API to accept ids.
   await ensureAEIdByName(input.ae);
-  await ensureAccountIdByName(accountName);
+  if (accountName) await ensureAccountIdByName(accountName);
 
   let created: ApiTask;
   try {
@@ -326,9 +343,13 @@ export async function createAE(name: string): Promise<void> {
   });
 
   aeByKey.set(normalizeKey(created.name), created);
+
+  const nextColors = { ...snapshot.aeColors };
+  nextColors[created.name] = resolveAEColor(created.name, created.color);
   commit({
     ...snapshot,
     aes: [...snapshot.aes, created.name].sort((a, b) => a.localeCompare(b)),
+    aeColors: nextColors,
   });
 }
 

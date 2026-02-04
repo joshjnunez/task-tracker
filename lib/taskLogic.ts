@@ -25,6 +25,8 @@ export function normalizeFilters(filters: TaskFilters): TaskFilters {
     ae: filters.ae ?? "ALL",
     account: filters.account ?? "ALL",
     status: filters.status ?? "ALL",
+    dueThisWeek: filters.dueThisWeek ?? false,
+    overdue: filters.overdue ?? false,
   };
 }
 

@@ -9,12 +9,14 @@ function normalizeKey(value: string): string {
 export function ManageList({
   title,
   items,
+  colors,
   inUseCount,
   onAdd,
   onRemove,
 }: {
   title: string;
   items: string[];
+  colors?: Record<string, string>;
   inUseCount: (value: string) => number;
   onAdd: (value: string) => void;
   onRemove: (value: string) => void;
@@ -84,7 +86,16 @@ export function ManageList({
                 className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2"
               >
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-medium text-zinc-900">{it}</div>
+                  <div className="flex min-w-0 items-center gap-2">
+                    {colors && colors[it] ? (
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full border border-black/10"
+                        style={{ backgroundColor: colors[it] }}
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                    <div className="min-w-0 truncate text-sm font-medium text-zinc-900">{it}</div>
+                  </div>
                   {used > 0 ? (
                     <div className="mt-0.5 text-xs text-zinc-500">In use by {used} tasks</div>
                   ) : null}

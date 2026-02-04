@@ -8,6 +8,9 @@ import { TaskRow } from "@/components/TaskRow";
 export function TaskList({
   active,
   completed,
+  groupedActive,
+  groupByDueThisWeek,
+  aeColors,
   onEdit,
   onDelete,
   onStatusChange,
@@ -15,14 +18,20 @@ export function TaskList({
 }: {
   active: Task[];
   completed: Task[];
+  groupedActive?: {
+    dueThisWeek: Task[];
+  } | null;
+  groupByDueThisWeek?: boolean;
+  aeColors?: Record<string, string>;
   onEdit: (task: Task) => void;
   onDelete: (task: Task) => void;
   onStatusChange: (task: Task, status: TaskStatus) => void;
   onDueDateChange: (task: Task, dueDate: string) => void;
 }) {
   const [showCompleted, setShowCompleted] = useState(false);
+  const [expandedById, setExpandedById] = useState<Record<string, boolean>>({});
 
-  const desktopGridTemplate = "minmax(26ch, 1fr) 8ch 20ch 16ch 14ch 18ch";
+  const desktopGridTemplate = "minmax(26ch, 1fr) 7ch 24ch 16ch 14ch 18ch";
 
   const hasAny = active.length + completed.length > 0;
 
@@ -44,6 +53,44 @@ export function TaskList({
     return null;
   }, [active.length, hasAny]);
 
+  const renderDesktopTask = (t: Task) => {
+    const hasDescription = Boolean(t.description && t.description.trim().length);
+    const expanded = Boolean(expandedById[t.id]);
+
+    return (
+      <div key={t.id}>
+        <TaskRow
+          task={t}
+          gridTemplateColumns={desktopGridTemplate}
+          aeColor={aeColors?.[t.ae]}
+          expanded={expanded}
+          expandDisabled={!hasDescription}
+          onToggleExpand={() => {
+            if (!hasDescription) return;
+            setExpandedById((prev) => ({ ...prev, [t.id]: !prev[t.id] }));
+          }}
+          onEdit={() => onEdit(t)}
+          onDelete={() => onDelete(t)}
+          onStatusChange={(s) => onStatusChange(t, s)}
+          onDueDateChange={(d) => onDueDateChange(t, d)}
+        />
+
+        {expanded && hasDescription ? (
+          <div className="border-t border-zinc-100 bg-zinc-50 px-4 py-3">
+            <div
+              className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-700"
+              style={{ paddingLeft: "2.25rem" }}
+            >
+              {t.description}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+
+  const shouldGroupDesktopActive = Boolean(groupByDueThisWeek && groupedActive);
+
   return (
     <div className="space-y-4">
       {emptyState ? (
@@ -58,7 +105,7 @@ export function TaskList({
       <div className="md:hidden">
         <div className="space-y-3">
           {active.map((t) => (
-            <MobileTaskCard key={t.id} task={t} />
+            <MobileTaskCard key={t.id} task={t} aeColor={aeColors?.[t.ae]} />
           ))}
         </div>
       </div>
@@ -70,8 +117,8 @@ export function TaskList({
             style={{ gridTemplateColumns: desktopGridTemplate }}
           >
             <div className="min-w-0 text-xs font-medium">Task</div>
-            <div className="min-w-0 text-xs font-medium">AE</div>
-            <div className="min-w-0 text-xs font-medium">Account</div>
+            <div className="min-w-0 pr-4 text-xs font-medium">AE</div>
+            <div className="min-w-0 pl-4 text-xs font-medium">Account</div>
             <div className="min-w-0 text-xs font-medium">Due</div>
             <div className="min-w-0 text-xs font-medium">Status</div>
             <div className="min-w-0 text-right text-xs font-medium">Actions</div>
@@ -81,17 +128,22 @@ export function TaskList({
               No active tasks.
             </div>
           ) : (
-            active.map((t) => (
-              <TaskRow
-                key={t.id}
-                task={t}
-                gridTemplateColumns={desktopGridTemplate}
-                onEdit={() => onEdit(t)}
-                onDelete={() => onDelete(t)}
-                onStatusChange={(s) => onStatusChange(t, s)}
-                onDueDateChange={(d) => onDueDateChange(t, d)}
-              />
-            ))
+            shouldGroupDesktopActive ? (
+              <div>
+                <div className="border-t border-zinc-100 bg-zinc-50 px-4 py-2 text-xs font-semibold text-zinc-700">
+                  Due this week
+                </div>
+                {groupedActive!.dueThisWeek.length === 0 ? (
+                  <div className="border-t border-zinc-100 px-4 py-4 text-sm text-zinc-600">
+                    No tasks due this week.
+                  </div>
+                ) : (
+                  groupedActive!.dueThisWeek.map(renderDesktopTask)
+                )}
+              </div>
+            ) : (
+              active.map(renderDesktopTask)
+            )
           )}
         </div>
       </div>
@@ -124,22 +176,45 @@ export function TaskList({
               <div className="space-y-3 sm:space-y-2">
                 {completed.map((t) => (
                   <div key={t.id} className="md:hidden">
-                    <MobileTaskCard task={t} />
+                    <MobileTaskCard task={t} aeColor={aeColors?.[t.ae]} />
                   </div>
                 ))}
                 <div className="hidden md:block">
                   <div className="overflow-hidden rounded-2xl border border-zinc-200">
-                    {completed.map((t) => (
-                      <TaskRow
-                        key={t.id}
-                        task={t}
-                        gridTemplateColumns={desktopGridTemplate}
-                        onEdit={() => onEdit(t)}
-                        onDelete={() => onDelete(t)}
-                        onStatusChange={(s) => onStatusChange(t, s)}
-                        onDueDateChange={(d) => onDueDateChange(t, d)}
-                      />
-                    ))}
+                    {completed.map((t) => {
+                      const hasDescription = Boolean(t.description && t.description.trim().length);
+                      const expanded = Boolean(expandedById[t.id]);
+
+                      return (
+                        <div key={t.id}>
+                          <TaskRow
+                            task={t}
+                            gridTemplateColumns={desktopGridTemplate}
+                            expanded={expanded}
+                            expandDisabled={!hasDescription}
+                            onToggleExpand={() => {
+                              if (!hasDescription) return;
+                              setExpandedById((prev) => ({ ...prev, [t.id]: !prev[t.id] }));
+                            }}
+                            onEdit={() => onEdit(t)}
+                            onDelete={() => onDelete(t)}
+                            onStatusChange={(s) => onStatusChange(t, s)}
+                            onDueDateChange={(d) => onDueDateChange(t, d)}
+                          />
+
+                          {expanded && hasDescription ? (
+                            <div className="border-t border-zinc-100 bg-zinc-50 px-4 py-3">
+                              <div
+                                className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-700"
+                                style={{ paddingLeft: "2.25rem" }}
+                              >
+                                {t.description}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

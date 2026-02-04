@@ -63,6 +63,12 @@ export function TaskForm({
 
   return (
     <form onSubmit={onInternalSubmit} className="space-y-4">
+      {isEditing && initial ? (
+        <div className="text-xs text-zinc-500">
+          Created: {new Date(initial.createdAt).toLocaleDateString()}
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="sm:col-span-2">
           <div className="text-xs font-medium text-zinc-600">Title *</div>
