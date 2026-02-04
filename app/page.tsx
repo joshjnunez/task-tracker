@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { useAppData } from "@/components/AppDataProvider";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -93,6 +93,32 @@ export default function Home() {
     setComposerOpen(true);
   };
 
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "n") return;
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      if (composerOpen || confirmOpen) return;
+
+      const target = e.target as Element | null;
+      if (target) {
+        const tag = target.tagName.toLowerCase();
+        if (tag === "input" || tag === "textarea" || tag === "select") return;
+        if (target instanceof HTMLElement && target.isContentEditable) return;
+      }
+
+      if (typeof window !== "undefined") {
+        // Desktop-only shortcut (Tailwind md+ intent).
+        if (!window.matchMedia("(min-width: 768px)").matches) return;
+      }
+
+      e.preventDefault();
+      openNew();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [composerOpen, confirmOpen]);
+
   const openEdit = (task: Task) => {
     setEditingTask(task);
     setComposerOpen(true);
@@ -172,7 +198,10 @@ export default function Home() {
               onClick={openNew}
               className="h-11 shrink-0 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
             >
-              New Task
+              <span>New Task</span>
+              <span className="ml-2 hidden items-center rounded-md border border-white/20 bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-white md:inline-flex">
+                N
+              </span>
             </button>
           }
         />

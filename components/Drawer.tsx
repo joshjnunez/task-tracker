@@ -58,6 +58,14 @@ export function Drawer({ open, onClose }: { open: boolean; onClose: () => void }
             }`}
           >
             Manage
+            <span
+              className={
+                "ml-auto hidden items-center rounded-md border px-1.5 py-0.5 text-[10px] font-semibold md:inline-flex " +
+                (isManage ? "border-white/20 bg-white/10 text-white" : "border-zinc-200 bg-white text-zinc-700")
+              }
+            >
+              M
+            </span>
           </Link>
         </nav>
       </div>
