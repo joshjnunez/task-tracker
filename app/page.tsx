@@ -5,6 +5,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { useAppData } from "@/components/AppDataProvider";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Filters } from "@/components/Filters";
+import { MobileFilters } from "@/components/MobileFilters";
 import { ModalOrSheet } from "@/components/ModalOrSheet";
 import { TaskForm, type TaskDraft } from "@/components/TaskForm";
 import { TaskList } from "@/components/TaskList";
@@ -145,15 +146,29 @@ export default function Home() {
         />
 
         <div className="mt-5">
-          <Filters
-            filters={filters}
-            aes={mergedAEs}
-            accounts={mergedAccounts}
-            onChange={setFilters}
-            onClear={() =>
-              setFilters({ query: "", ae: "ALL", account: "ALL", status: "ALL" })
-            }
-          />
+          <div className="md:hidden">
+            <MobileFilters
+              filters={filters}
+              aes={mergedAEs}
+              accounts={mergedAccounts}
+              onChange={setFilters}
+              onClear={() =>
+                setFilters({ query: "", ae: "ALL", account: "ALL", status: "ALL" })
+              }
+            />
+          </div>
+
+          <div className="hidden md:block">
+            <Filters
+              filters={filters}
+              aes={mergedAEs}
+              accounts={mergedAccounts}
+              onChange={setFilters}
+              onClear={() =>
+                setFilters({ query: "", ae: "ALL", account: "ALL", status: "ALL" })
+              }
+            />
+          </div>
         </div>
 
         <div className="mt-4">

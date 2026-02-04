@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import type { Task, TaskStatus } from "@/lib/types";
-import { TaskCard } from "@/components/TaskCard";
+import { MobileTaskCard } from "@/components/MobileTaskCard";
 import { TaskRow } from "@/components/TaskRow";
 
 export function TaskList({
@@ -55,22 +55,15 @@ export function TaskList({
         </div>
       ) : null}
 
-      <div className="sm:hidden">
+      <div className="md:hidden">
         <div className="space-y-3">
           {active.map((t) => (
-            <TaskCard
-              key={t.id}
-              task={t}
-              onEdit={() => onEdit(t)}
-              onDelete={() => onDelete(t)}
-              onStatusChange={(s) => onStatusChange(t, s)}
-              onDueDateChange={(d) => onDueDateChange(t, d)}
-            />
+            <MobileTaskCard key={t.id} task={t} />
           ))}
         </div>
       </div>
 
-      <div className="hidden sm:block">
+      <div className="hidden md:block">
         <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
           <div
             className="grid items-center gap-3 px-4 py-3 text-sm text-zinc-600"
@@ -130,17 +123,11 @@ export function TaskList({
             ) : (
               <div className="space-y-3 sm:space-y-2">
                 {completed.map((t) => (
-                  <div key={t.id} className="sm:hidden">
-                    <TaskCard
-                      task={t}
-                      onEdit={() => onEdit(t)}
-                      onDelete={() => onDelete(t)}
-                      onStatusChange={(s) => onStatusChange(t, s)}
-                      onDueDateChange={(d) => onDueDateChange(t, d)}
-                    />
+                  <div key={t.id} className="md:hidden">
+                    <MobileTaskCard task={t} />
                   </div>
                 ))}
-                <div className="hidden sm:block">
+                <div className="hidden md:block">
                   <div className="overflow-hidden rounded-2xl border border-zinc-200">
                     {completed.map((t) => (
                       <TaskRow
