@@ -5,6 +5,7 @@ import type { Task, TaskStatus } from "@/lib/types";
 import { getAllStatuses, getStatusLabel } from "@/lib/taskLogic";
 import { resolveAEColor } from "@/lib/aeColors";
 import { formatAccountName, isMissingAccount } from "@/lib/formatters";
+import { InProgressFire } from "@/components/InProgressFire";
 
 function Pill({ children }: { children: React.ReactNode }) {
   return (
@@ -84,7 +85,10 @@ export function TaskRow({
             </span>
           </button>
 
-          <div className="min-w-0 truncate text-sm font-semibold text-zinc-900">{task.title}</div>
+          <div className="min-w-0 truncate text-sm font-semibold text-zinc-900">
+            <InProgressFire status={task.status} />
+            {task.title}
+          </div>
         </div>
       </div>
 

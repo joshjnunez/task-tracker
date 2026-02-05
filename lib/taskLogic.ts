@@ -85,6 +85,25 @@ export function sortTasks(tasks: Task[]): { active: Task[]; completed: Task[] } 
   };
 }
 
+function compareUpdatedOrCreatedDesc(a: Task, b: Task): number {
+  const aKey = a.updatedAt ?? a.createdAt;
+  const bKey = b.updatedAt ?? b.createdAt;
+  return bKey.localeCompare(aKey);
+}
+
+export function sortTasksWithInProgressPriority(tasks: Task[]): { active: Task[]; completed: Task[] } {
+  const active = tasks.filter((t) => !isCompleted(t));
+  const completed = tasks.filter((t) => isCompleted(t));
+
+  const inProgress = active.filter((t) => t.status === "IN_PROGRESS").sort(compareUpdatedOrCreatedDesc);
+  const rest = active.filter((t) => t.status !== "IN_PROGRESS");
+
+  return {
+    active: [...inProgress, ...sortActiveTasks(rest)],
+    completed: sortCompletedTasks(completed),
+  };
+}
+
 export function deriveAEs(tasks: Task[]): string[] {
   return Array.from(new Set(tasks.map((t) => t.ae).filter(Boolean))).sort((a, b) =>
     a.localeCompare(b),

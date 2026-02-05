@@ -19,6 +19,7 @@ import type { Task, TaskFilters, TaskStatus } from "@/lib/types";
 import {
   filterTasks,
   sortTasks,
+  sortTasksWithInProgressPriority,
 } from "@/lib/taskLogic";
 import { getChicagoWeekRange, isOverdue } from "@/lib/dateRanges";
 
@@ -78,7 +79,10 @@ export default function Home() {
     return nonDone;
   }, [tasks, filters]);
 
-  const { active, completed } = useMemo(() => sortTasks(filteredTasks), [filteredTasks]);
+  const { active, completed } = useMemo(() => {
+    if (filters.dueThisWeek || filters.overdue) return sortTasks(filteredTasks);
+    return sortTasksWithInProgressPriority(filteredTasks);
+  }, [filteredTasks, filters.dueThisWeek, filters.overdue]);
 
   const groupedActive = useMemo(() => {
     if (!filters.dueThisWeek) return null;

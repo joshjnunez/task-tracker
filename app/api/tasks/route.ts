@@ -11,6 +11,7 @@ type DbTaskRow = {
   status: TaskStatus;
   due_date: string | null;
   created_at: string;
+  updated_at?: string | null;
   completed_at: string | null;
   ae: { name: string } | null;
   account: { name: string } | null;
@@ -27,8 +28,14 @@ function toApiTask(row: DbTaskRow) {
     status: row.status,
     dueDate,
     createdAt: row.created_at,
+    updatedAt: row.updated_at ?? undefined,
     completedAt: row.completed_at,
   };
+}
+
+function isMissingUpdatedAt(error: { message?: string } | null | undefined): boolean {
+  const msg = (error?.message ?? "").toLowerCase();
+  return msg.includes("column") && msg.includes("updated_at");
 }
 
 function sortTasks(rows: DbTaskRow[]): DbTaskRow[] {
@@ -105,22 +112,41 @@ async function upsertByName(params: {
 }
 
 export async function GET() {
-  const { data, error } = await supabase
+  const withUpdatedAt = await supabase
     .from("tasks")
     .select(
-      "id,title,description,status,due_date,created_at,completed_at,ae:aes(name),account:accounts(name)",
+      "id,title,description,status,due_date,created_at,updated_at,completed_at,ae:aes(name),account:accounts(name)",
     )
     .returns<DbTaskRow[]>();
 
-  if (error) {
-    return NextResponse.json(
-      { error: "Failed to fetch tasks", detail: error.message },
-      { status: 500 },
-    );
+  if (!withUpdatedAt.error) {
+    const sorted = sortTasks(withUpdatedAt.data ?? []);
+    return NextResponse.json(sorted.map(toApiTask));
   }
 
-  const sorted = sortTasks(data ?? []);
-  return NextResponse.json(sorted.map(toApiTask));
+  if (isMissingUpdatedAt(withUpdatedAt.error)) {
+    const fallback = await supabase
+      .from("tasks")
+      .select(
+        "id,title,description,status,due_date,created_at,completed_at,ae:aes(name),account:accounts(name)",
+      )
+      .returns<Omit<DbTaskRow, "updated_at">[]>();
+
+    if (fallback.error) {
+      return NextResponse.json(
+        { error: "Failed to fetch tasks", detail: fallback.error.message },
+        { status: 500 },
+      );
+    }
+
+    const sorted = sortTasks(fallback.data ?? []);
+    return NextResponse.json(sorted.map((r) => toApiTask({ ...r, updated_at: null })));
+  }
+
+  return NextResponse.json(
+    { error: "Failed to fetch tasks", detail: withUpdatedAt.error.message },
+    { status: 500 },
+  );
 }
 
 export async function POST(req: Request) {
@@ -184,8 +210,9 @@ export async function POST(req: Request) {
   }
 
   const completed_at = payload.status === "DONE" ? new Date().toISOString() : null;
+  const nowIso = new Date().toISOString();
 
-  const { data, error } = await supabase
+  const insertedWithUpdatedAt = await supabase
     .from("tasks")
     .insert({
       title: payload.title,
@@ -195,11 +222,43 @@ export async function POST(req: Request) {
       status: payload.status,
       due_date: payload.due_date ?? null,
       completed_at,
+      updated_at: nowIso,
     })
     .select(
-      "id,title,description,status,due_date,created_at,completed_at,ae:aes(name),account:accounts(name)",
+      "id,title,description,status,due_date,created_at,updated_at,completed_at,ae:aes(name),account:accounts(name)",
     )
     .single<DbTaskRow>();
+
+  if (insertedWithUpdatedAt.error && isMissingUpdatedAt(insertedWithUpdatedAt.error)) {
+    const insertedNoUpdatedAt = await supabase
+      .from("tasks")
+      .insert({
+        title: payload.title,
+        description: payload.description ?? null,
+        ae_id,
+        account_id: account_id ?? null,
+        status: payload.status,
+        due_date: payload.due_date ?? null,
+        completed_at,
+      })
+      .select(
+        "id,title,description,status,due_date,created_at,completed_at,ae:aes(name),account:accounts(name)",
+      )
+      .single<Omit<DbTaskRow, "updated_at">>();
+
+    if (insertedNoUpdatedAt.error) {
+      return NextResponse.json(
+        { error: "Failed to create task", detail: insertedNoUpdatedAt.error.message },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json(toApiTask({ ...insertedNoUpdatedAt.data, updated_at: null }), {
+      status: 201,
+    });
+  }
+
+  const { data, error } = insertedWithUpdatedAt;
 
   if (error) {
     console.error("POST /api/tasks insert failed", {

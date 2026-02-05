@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { InProgressFire } from "@/components/InProgressFire";
 import type { Task, TaskStatus } from "@/lib/types";
 import { getStatusLabel } from "@/lib/taskLogic";
 import { resolveAEColor } from "@/lib/aeColors";
@@ -38,7 +39,10 @@ function StatusBadge({ status }: { status: TaskStatus }) {
 export function MobileTaskCard({ task, aeColor }: { task: Task; aeColor?: string }) {
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-      <div className="text-base font-semibold leading-snug text-zinc-900">{task.title}</div>
+      <div className="text-base font-semibold leading-snug text-zinc-900">
+        <InProgressFire status={task.status} />
+        {task.title}
+      </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <AEPill name={task.ae} color={aeColor} />

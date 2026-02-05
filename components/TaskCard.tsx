@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { InProgressFire } from "@/components/InProgressFire";
 import type { Task, TaskStatus } from "@/lib/types";
 import { getAllStatuses, getStatusLabel } from "@/lib/taskLogic";
 import { resolveAEColor } from "@/lib/aeColors";
@@ -47,6 +48,7 @@ export function TaskCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="truncate text-base font-semibold text-zinc-900">
+            <InProgressFire status={task.status} />
             {task.title}
           </div>
           <div className="mt-2 flex flex-wrap gap-2">

@@ -35,6 +35,7 @@ type ApiTask = {
   status: TaskStatus;
   dueDate?: string;
   createdAt: string;
+  updatedAt?: string;
   completedAt?: string | null;
 };
 
@@ -366,6 +367,30 @@ export async function deleteAE(id: string): Promise<boolean> {
   aeByKey.delete(key);
   commit({ ...snapshot, aes: snapshot.aes.filter((v) => normalizeKey(v) !== key) });
   return true;
+}
+
+export async function reconcileAEColors(): Promise<{ changed: number }> {
+  await ensureHydrated();
+
+  const res = await apiJson<{ ok: true; changed: number }>("/api/aes/reconcile-colors", {
+    method: "POST",
+  });
+
+  const aes = await apiJson<AE[]>("/api/aes");
+  aeByKey = new Map(aes.map((a) => [normalizeKey(a.name), a]));
+
+  const aeColors: Record<string, string> = {};
+  for (const ae of aes) {
+    aeColors[ae.name] = resolveAEColor(ae.name, ae.color);
+  }
+
+  commit({
+    ...snapshot,
+    aes: aes.map((a) => a.name),
+    aeColors,
+  });
+
+  return { changed: res.changed };
 }
 
 export async function getAccounts(): Promise<string[]> {

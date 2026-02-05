@@ -11,6 +11,7 @@ type DbTaskRow = {
   status: TaskStatus;
   due_date: string | null;
   created_at: string;
+  updated_at?: string | null;
   completed_at: string | null;
   ae: { name: string } | null;
   account: { name: string } | null;
@@ -27,8 +28,14 @@ function toApiTask(row: DbTaskRow) {
     status: row.status,
     dueDate,
     createdAt: row.created_at,
+    updatedAt: row.updated_at ?? undefined,
     completedAt: row.completed_at,
   };
+}
+
+function isMissingUpdatedAt(error: { message?: string } | null | undefined): boolean {
+  const msg = (error?.message ?? "").toLowerCase();
+  return msg.includes("column") && msg.includes("updated_at");
 }
 
 const idParamSchema = z.object({
@@ -117,15 +124,38 @@ export async function PATCH(
   if (patch.status !== undefined) updatePayload.status = patch.status;
   if (patch.due_date !== undefined) updatePayload.due_date = patch.due_date;
   if (completed_at !== undefined) updatePayload.completed_at = completed_at;
+  if (patch.status !== undefined) updatePayload.updated_at = new Date().toISOString();
 
-  const { data, error } = await supabase
+  const updatedWithUpdatedAt = await supabase
     .from("tasks")
     .update(updatePayload)
     .eq("id", id)
     .select(
-      "id,title,description,status,due_date,created_at,completed_at,ae:aes(name),account:accounts(name)",
+      "id,title,description,status,due_date,created_at,updated_at,completed_at,ae:aes(name),account:accounts(name)",
     )
     .single<DbTaskRow>();
+
+  if (updatedWithUpdatedAt.error && isMissingUpdatedAt(updatedWithUpdatedAt.error)) {
+    const fallback = await supabase
+      .from("tasks")
+      .update(updatePayload)
+      .eq("id", id)
+      .select(
+        "id,title,description,status,due_date,created_at,completed_at,ae:aes(name),account:accounts(name)",
+      )
+      .single<Omit<DbTaskRow, "updated_at">>();
+
+    if (fallback.error) {
+      return NextResponse.json(
+        { error: "Failed to update task", detail: fallback.error.message },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json(toApiTask({ ...fallback.data, updated_at: null }));
+  }
+
+  const { data, error } = updatedWithUpdatedAt;
 
   if (error) {
     return NextResponse.json(

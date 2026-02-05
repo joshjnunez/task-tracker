@@ -32,7 +32,21 @@ export async function GET() {
     .returns<AE[]>();
 
   if (!withColor.error) {
-    return NextResponse.json(withColor.data ?? []);
+    const rows = withColor.data ?? [];
+    const colors = rows
+      .map((r) => (r.color ?? "").trim())
+      .filter((c) => c.length > 0);
+    if (rows.length <= AE_MUTED_PALETTE.length) {
+      const unique = new Set(colors);
+      if (unique.size !== colors.length) {
+        console.warn("/api/aes GET duplicate colors detected", {
+          total: rows.length,
+          colored: colors.length,
+          unique: unique.size,
+        });
+      }
+    }
+    return NextResponse.json(rows);
   }
 
   if (isMissingColumn(withColor.error)) {
@@ -115,7 +129,14 @@ export async function POST(req: Request) {
         .filter((v) => v.length > 0),
     );
 
-    color = AE_MUTED_PALETTE.find((c) => !used.has(c)) ?? AE_MUTED_PALETTE[0];
+    const next = AE_MUTED_PALETTE.find((c) => !used.has(c));
+    if (!next) {
+      console.warn("/api/aes POST palette exhausted", {
+        used: used.size,
+        palette: AE_MUTED_PALETTE.length,
+      });
+    }
+    color = next ?? AE_MUTED_PALETTE[0];
   }
 
   const insertedWithColor = await supabase

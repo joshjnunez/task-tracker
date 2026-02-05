@@ -11,6 +11,16 @@ export const AE_MUTED_PALETTE: string[] = [
   "#DDD6FE",
 ];
 
+const paletteSet = new Set(AE_MUTED_PALETTE);
+if (AE_MUTED_PALETTE.length !== 10 || paletteSet.size !== AE_MUTED_PALETTE.length) {
+  const msg = "AE_MUTED_PALETTE must contain exactly 10 unique colors";
+  if (process.env.NODE_ENV === "production") {
+    console.warn(msg, { length: AE_MUTED_PALETTE.length, unique: paletteSet.size });
+  } else {
+    throw new Error(msg);
+  }
+}
+
 export function pickDeterministicAEColor(name: string): string {
   const s = name.trim().toLowerCase();
   let hash = 0;
