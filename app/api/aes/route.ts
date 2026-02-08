@@ -205,23 +205,36 @@ export async function DELETE(req: Request) {
 
   const id = parsed.data.id;
 
-  const { count, error: countError } = await supabase
+  const { count: openCount, error: openError } = await supabase
     .from("tasks")
     .select("id", { count: "exact", head: true })
-    .eq("ae_id", id);
+    .eq("ae_id", id)
+    .neq("status", "DONE");
 
-  if (countError) {
+  if (openError) {
     return NextResponse.json(
-      { error: "Failed to check references", detail: countError.message },
+      { error: "Failed to check references", detail: openError.message },
       { status: 500 },
     );
   }
 
-  const used = count ?? 0;
-  if (used > 0) {
+  if ((openCount ?? 0) > 0) {
     return NextResponse.json(
-      { error: "AE is in use", count: used },
+      { error: "AE is in use", count: openCount },
       { status: 409 },
+    );
+  }
+
+  const { error: detachError } = await supabase
+    .from("tasks")
+    .update({ ae_id: null })
+    .eq("ae_id", id)
+    .eq("status", "DONE");
+
+  if (detachError) {
+    return NextResponse.json(
+      { error: "Failed to detach completed tasks", detail: detachError.message },
+      { status: 500 },
     );
   }
 

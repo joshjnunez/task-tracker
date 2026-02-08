@@ -27,6 +27,7 @@ export default function ManagePage() {
   const aeInUseCount = useMemo(() => {
     const counts = new Map<string, number>();
     for (const t of tasks) {
+      if (t.status === "DONE") continue;
       counts.set(t.ae, (counts.get(t.ae) ?? 0) + 1);
     }
     return (value: string) => counts.get(value) ?? 0;

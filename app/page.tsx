@@ -6,6 +6,7 @@ import { useAppData } from "@/components/AppDataProvider";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Filters } from "@/components/Filters";
 import { MobileFilters } from "@/components/MobileFilters";
+import { AESummaryBar } from "@/components/AESummaryBar";
 import { ModalOrSheet } from "@/components/ModalOrSheet";
 import { TaskForm, type TaskDraft } from "@/components/TaskForm";
 import { TaskList } from "@/components/TaskList";
@@ -248,6 +249,16 @@ export default function Home() {
               }
             />
           </div>
+        </div>
+
+        <div className="mt-3">
+          <AESummaryBar
+            tasks={tasks}
+            aes={mergedAEs}
+            aeColors={aeColors}
+            activeAE={filters.ae}
+            onSelectAE={(ae) => setFilters({ ...filters, ae })}
+          />
         </div>
 
         <div className="mt-4">

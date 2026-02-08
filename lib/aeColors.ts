@@ -1,5 +1,5 @@
 export const AE_MUTED_PALETTE: string[] = [
-  "#CBD5E1",
+  "#FCA5A5",
   "#BFDBFE",
   "#A7F3D0",
   "#FED7AA",
@@ -7,7 +7,7 @@ export const AE_MUTED_PALETTE: string[] = [
   "#FBCFE8",
   "#C7D2FE",
   "#BBF7D0",
-  "#E2E8F0",
+  "#FDE68A",
   "#DDD6FE",
 ];
 

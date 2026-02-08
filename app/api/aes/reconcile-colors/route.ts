@@ -39,13 +39,14 @@ export async function POST() {
 
   const rows = res.data ?? [];
 
+  const paletteSet = new Set(AE_MUTED_PALETTE);
   const used = new Set<string>();
   const reassign: AERow[] = [];
   const changes: { id: string; from: string | null; to: string }[] = [];
 
   for (const ae of rows) {
     const c = (ae.color ?? "").trim();
-    if (!c || used.has(c)) {
+    if (!c || used.has(c) || !paletteSet.has(c)) {
       reassign.push(ae);
       continue;
     }

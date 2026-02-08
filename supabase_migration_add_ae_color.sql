@@ -9,7 +9,7 @@ with ordered as (
 update aes
 set color = (
   array[
-    '#CBD5E1',
+    '#FCA5A5',
     '#BFDBFE',
     '#A7F3D0',
     '#FED7AA',
@@ -17,7 +17,7 @@ set color = (
     '#FBCFE8',
     '#C7D2FE',
     '#BBF7D0',
-    '#E2E8F0',
+    '#FDE68A',
     '#DDD6FE'
   ]::text[]
 )[(ordered.rn % 10) + 1]
