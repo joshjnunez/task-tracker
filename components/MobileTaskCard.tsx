@@ -36,7 +36,17 @@ function StatusBadge({ status }: { status: TaskStatus }) {
   );
 }
 
-export function MobileTaskCard({ task, aeColor }: { task: Task; aeColor?: string }) {
+export function MobileTaskCard({
+  task,
+  aeColor,
+  onToggleToday,
+  inToday,
+}: {
+  task: Task;
+  aeColor?: string;
+  onToggleToday: () => void;
+  inToday?: boolean;
+}) {
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
       <div className="text-base font-semibold leading-snug text-zinc-900">
@@ -53,6 +63,22 @@ export function MobileTaskCard({ task, aeColor }: { task: Task; aeColor?: string
         )}
         <StatusBadge status={task.status} />
         {task.dueDate ? <Pill>Due {task.dueDate}</Pill> : null}
+      </div>
+
+      <div className="mt-3">
+        <button
+          type="button"
+          onClick={onToggleToday}
+          aria-pressed={inToday}
+          className={
+            "h-10 rounded-xl border px-3 text-sm font-medium hover:bg-zinc-50 " +
+            (inToday
+              ? "border-zinc-900 bg-zinc-900 text-white hover:bg-zinc-800"
+              : "border-zinc-200 bg-white text-zinc-800")
+          }
+        >
+          Today
+        </button>
       </div>
 
       {task.description ? (

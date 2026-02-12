@@ -4,8 +4,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { useAppData } from "@/components/AppDataProvider";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { Filters } from "@/components/Filters";
-import { MobileFilters } from "@/components/MobileFilters";
 import { AESummaryBar } from "@/components/AESummaryBar";
 import { ModalOrSheet } from "@/components/ModalOrSheet";
 import { TaskForm, type TaskDraft } from "@/components/TaskForm";
@@ -23,6 +21,7 @@ import {
   sortTasksWithInProgressPriority,
 } from "@/lib/taskLogic";
 import { getChicagoWeekRange, isOverdue } from "@/lib/dateRanges";
+import { useTodayTaskIds } from "@/lib/useTodayTaskIds";
 
 function mergeUnknowns(managed: string[], referenced: string[]): string[] {
   const set = new Set(managed);
@@ -36,6 +35,7 @@ function mergeUnknowns(managed: string[], referenced: string[]): string[] {
 export default function Home() {
   const { push } = useToast();
   const { tasks, aes, aeColors, accounts } = useAppData();
+  const { toggle: toggleToday, has: hasToday } = useTodayTaskIds();
 
   const [filters, setFilters] = useState<TaskFilters>({
     query: "",
@@ -57,6 +57,26 @@ export default function Home() {
     () => mergeUnknowns(accounts, tasks.map((t) => t.account)),
     [accounts, tasks],
   );
+
+  const toggleTodayWithToast = (taskId: string) => {
+    const wasInToday = hasToday(taskId);
+    toggleToday(taskId);
+    push({
+      kind: "success",
+      title: wasInToday ? "Removed from Today" : "Added to Today",
+    });
+  };
+
+  const clearAll = () => {
+    setFilters({
+      query: "",
+      ae: "ALL",
+      account: "ALL",
+      status: "ALL",
+      dueThisWeek: false,
+      overdue: false,
+    });
+  };
 
   const filteredTasks = useMemo(() => {
     const base = filterTasks(tasks, filters);
@@ -145,6 +165,7 @@ export default function Home() {
     push({ kind: "success", title: "Task deleted" });
     setConfirmOpen(false);
     setTaskPendingDelete(null);
+    closeComposer();
   };
 
   const upsertFromDraft = async (draft: TaskDraft) => {
@@ -188,11 +209,6 @@ export default function Home() {
     void updateTask(task.id, { status });
   };
 
-  const updateDueDate = (task: Task, dueDate: string) => {
-    const next = dueDate.trim().length ? dueDate : undefined;
-    void updateTask(task.id, { dueDate: next });
-  };
-
   return (
     <div className="min-h-screen bg-[var(--background)]">
       <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
@@ -211,44 +227,58 @@ export default function Home() {
           }
         />
 
-        <div className="mt-5">
-          <div className="md:hidden">
-            <MobileFilters
-              filters={filters}
-              aes={mergedAEs}
-              accounts={mergedAccounts}
-              onChange={setFilters}
-              onClear={() =>
-                setFilters({
-                  query: "",
-                  ae: "ALL",
-                  account: "ALL",
-                  status: "ALL",
-                  dueThisWeek: false,
-                  overdue: false,
-                })
-              }
-            />
-          </div>
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              setFilters((prev) => {
+                const nextDueThisWeek = !prev.dueThisWeek;
+                return {
+                  ...prev,
+                  dueThisWeek: nextDueThisWeek,
+                  overdue: nextDueThisWeek ? false : prev.overdue,
+                };
+              })
+            }
+            className={
+              "h-10 rounded-xl border px-3 text-sm font-medium transition " +
+              (filters.dueThisWeek
+                ? "border-zinc-900 bg-zinc-900 text-white"
+                : "border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50")
+            }
+          >
+            Due this week
+          </button>
 
-          <div className="hidden md:block">
-            <Filters
-              filters={filters}
-              aes={mergedAEs}
-              accounts={mergedAccounts}
-              onChange={setFilters}
-              onClear={() =>
-                setFilters({
-                  query: "",
-                  ae: "ALL",
-                  account: "ALL",
-                  status: "ALL",
-                  dueThisWeek: false,
-                  overdue: false,
-                })
-              }
-            />
-          </div>
+          <button
+            type="button"
+            onClick={() =>
+              setFilters((prev) => {
+                const nextOverdue = !prev.overdue;
+                return {
+                  ...prev,
+                  overdue: nextOverdue,
+                  dueThisWeek: nextOverdue ? false : prev.dueThisWeek,
+                };
+              })
+            }
+            className={
+              "h-10 rounded-xl border px-3 text-sm font-medium transition " +
+              (filters.overdue
+                ? "border-red-700 bg-red-600 text-white"
+                : "border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50")
+            }
+          >
+            Overdue
+          </button>
+
+          <button
+            type="button"
+            onClick={clearAll}
+            className="ml-auto h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
+          >
+            Clear
+          </button>
         </div>
 
         <div className="mt-3">
@@ -269,9 +299,8 @@ export default function Home() {
             groupByDueThisWeek={filters.dueThisWeek}
             aeColors={aeColors}
             onEdit={openEdit}
-            onDelete={askDelete}
             onStatusChange={updateStatus}
-            onDueDateChange={updateDueDate}
+            onToggleToday={toggleTodayWithToast}
           />
         </div>
       </div>
@@ -290,6 +319,18 @@ export default function Home() {
           onCancel={closeComposer}
           onSubmit={upsertFromDraft}
         />
+
+        {editingTask ? (
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={() => askDelete(editingTask)}
+              className="h-11 rounded-xl border border-red-200 bg-white px-4 text-sm font-medium text-red-700 hover:bg-red-50"
+            >
+              Delete task
+            </button>
+          </div>
+        ) : null}
       </ModalOrSheet>
 
       <ConfirmDialog

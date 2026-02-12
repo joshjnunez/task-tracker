@@ -11,7 +11,7 @@ function KeyboardShortcuts() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "m") return;
+      if (e.key !== "m" && e.key !== "t" && e.key !== "h") return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
 
       const target = e.target as Element | null;
@@ -23,11 +23,13 @@ function KeyboardShortcuts() {
 
       // Desktop-only shortcut (Tailwind md+ intent).
       if (!window.matchMedia("(min-width: 768px)").matches) return;
-      if (pathname === "/manage") return;
+      if (e.key === "m" && pathname === "/manage") return;
+      if (e.key === "t" && pathname === "/today") return;
+      if (e.key === "h" && pathname === "/") return;
       if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
 
       e.preventDefault();
-      router.push("/manage");
+      router.push(e.key === "t" ? "/today" : e.key === "m" ? "/manage" : "/");
     };
 
     window.addEventListener("keydown", onKeyDown);

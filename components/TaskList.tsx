@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import type { Task, TaskStatus } from "@/lib/types";
 import { MobileTaskCard } from "@/components/MobileTaskCard";
 import { TaskRow } from "@/components/TaskRow";
+import { useTodayTaskIds } from "@/lib/useTodayTaskIds";
 
 export function TaskList({
   active,
@@ -12,9 +13,8 @@ export function TaskList({
   groupByDueThisWeek,
   aeColors,
   onEdit,
-  onDelete,
   onStatusChange,
-  onDueDateChange,
+  onToggleToday,
 }: {
   active: Task[];
   completed: Task[];
@@ -24,14 +24,15 @@ export function TaskList({
   groupByDueThisWeek?: boolean;
   aeColors?: Record<string, string>;
   onEdit: (task: Task) => void;
-  onDelete: (task: Task) => void;
   onStatusChange: (task: Task, status: TaskStatus) => void;
-  onDueDateChange: (task: Task, dueDate: string) => void;
+  onToggleToday: (taskId: string) => void;
 }) {
   const [showCompleted, setShowCompleted] = useState(false);
   const [expandedById, setExpandedById] = useState<Record<string, boolean>>({});
 
-  const desktopGridTemplate = "minmax(26ch, 1fr) 7ch 24ch 16ch 14ch 18ch";
+  const { has } = useTodayTaskIds();
+
+  const desktopGridTemplate = "minmax(26ch, 1fr) 7ch 24ch 16ch 14ch 7ch";
 
   const hasAny = active.length + completed.length > 0;
 
@@ -65,14 +66,14 @@ export function TaskList({
           aeColor={aeColors?.[t.ae]}
           expanded={expanded}
           expandDisabled={!hasDescription}
+          inToday={has(t.id)}
           onToggleExpand={() => {
             if (!hasDescription) return;
             setExpandedById((prev) => ({ ...prev, [t.id]: !prev[t.id] }));
           }}
           onEdit={() => onEdit(t)}
-          onDelete={() => onDelete(t)}
           onStatusChange={(s) => onStatusChange(t, s)}
-          onDueDateChange={(d) => onDueDateChange(t, d)}
+          onToggleToday={() => onToggleToday(t.id)}
         />
 
         {expanded && hasDescription ? (
@@ -105,7 +106,13 @@ export function TaskList({
       <div className="md:hidden">
         <div className="space-y-3">
           {active.map((t) => (
-            <MobileTaskCard key={t.id} task={t} aeColor={aeColors?.[t.ae]} />
+            <MobileTaskCard
+              key={t.id}
+              task={t}
+              aeColor={aeColors?.[t.ae]}
+              onToggleToday={() => onToggleToday(t.id)}
+              inToday={has(t.id)}
+            />
           ))}
         </div>
       </div>
@@ -121,7 +128,7 @@ export function TaskList({
             <div className="min-w-0 pl-4 text-xs font-medium">Account</div>
             <div className="min-w-0 text-xs font-medium">Due</div>
             <div className="min-w-0 text-xs font-medium">Status</div>
-            <div className="min-w-0 text-right text-xs font-medium">Actions</div>
+            <div className="min-w-0" />
           </div>
           {active.length === 0 ? (
             <div className="border-t border-zinc-100 px-4 py-6 text-sm text-zinc-600">
@@ -176,7 +183,12 @@ export function TaskList({
               <div className="space-y-3 sm:space-y-2">
                 {completed.map((t) => (
                   <div key={t.id} className="md:hidden">
-                    <MobileTaskCard task={t} aeColor={aeColors?.[t.ae]} />
+                    <MobileTaskCard
+                      task={t}
+                      aeColor={aeColors?.[t.ae]}
+                      onToggleToday={() => onToggleToday(t.id)}
+                      inToday={has(t.id)}
+                    />
                   </div>
                 ))}
                 <div className="hidden md:block">
@@ -192,14 +204,14 @@ export function TaskList({
                             gridTemplateColumns={desktopGridTemplate}
                             expanded={expanded}
                             expandDisabled={!hasDescription}
+                            inToday={has(t.id)}
                             onToggleExpand={() => {
                               if (!hasDescription) return;
                               setExpandedById((prev) => ({ ...prev, [t.id]: !prev[t.id] }));
                             }}
                             onEdit={() => onEdit(t)}
-                            onDelete={() => onDelete(t)}
                             onStatusChange={(s) => onStatusChange(t, s)}
-                            onDueDateChange={(d) => onDueDateChange(t, d)}
+                            onToggleToday={() => onToggleToday(t.id)}
                           />
 
                           {expanded && hasDescription ? (

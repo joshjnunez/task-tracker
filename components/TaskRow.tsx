@@ -15,6 +15,14 @@ function Pill({ children }: { children: React.ReactNode }) {
   );
 }
 
+function formatDueDate(dueDate?: string): string {
+  if (!dueDate) return "–";
+  const m = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(dueDate);
+  if (!m) return dueDate;
+  const [, yyyy, mm, dd] = m;
+  return `${mm}/${dd}/${yyyy}`;
+}
+
 function AEPill({ name, color }: { name: string; color?: string }) {
   const bg = resolveAEColor(name, color);
   return (
@@ -31,10 +39,10 @@ function AEPill({ name, color }: { name: string; color?: string }) {
 export function TaskRow({
   task,
   onEdit,
-  onDelete,
+  onToggleToday,
   onStatusChange,
-  onDueDateChange,
   aeColor,
+  inToday,
   expanded,
   onToggleExpand,
   expandDisabled,
@@ -42,10 +50,10 @@ export function TaskRow({
 }: {
   task: Task;
   onEdit: () => void;
-  onDelete: () => void;
+  onToggleToday: () => void;
   onStatusChange: (status: TaskStatus) => void;
-  onDueDateChange: (dueDate: string) => void;
   aeColor?: string;
+  inToday?: boolean;
   expanded?: boolean;
   onToggleExpand?: () => void;
   expandDisabled?: boolean;
@@ -55,10 +63,11 @@ export function TaskRow({
 
   return (
     <div
-      className="grid items-center gap-3 border-t border-zinc-100 px-4 py-3 text-sm"
+      onDoubleClick={onEdit}
+      className="grid cursor-pointer items-center gap-3 border-t border-zinc-100 px-4 py-3 text-sm hover:bg-zinc-50"
       style={{
         gridTemplateColumns:
-          gridTemplateColumns ?? "minmax(26ch, 1fr) 8ch 14ch 14ch 14ch 18ch",
+          gridTemplateColumns ?? "minmax(26ch, 1fr) 8ch 14ch 14ch 14ch 3ch",
       }}
     >
       <div className="min-w-0">
@@ -103,20 +112,17 @@ export function TaskRow({
         )}
       </div>
 
-      <div className="min-w-0">
-        <input
-          type="date"
-          value={task.dueDate ?? ""}
-          onChange={(e) => onDueDateChange(e.target.value)}
-          className="h-10 w-full rounded-xl border border-zinc-200 bg-white px-2 text-sm text-zinc-900 outline-none focus:border-zinc-400"
-        />
+      <div className="min-w-0 text-sm font-medium text-zinc-700">
+        {formatDueDate(task.dueDate)}
       </div>
 
       <div className="min-w-0">
         <select
           value={task.status}
           onChange={(e) => onStatusChange(e.target.value as TaskStatus)}
-          className="h-10 w-full rounded-xl border border-zinc-200 bg-white px-2.5 text-sm text-zinc-900 outline-none focus:border-zinc-400"
+          onClick={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => e.stopPropagation()}
+          className="h-9 w-full rounded-lg border border-zinc-200 bg-white px-2 text-xs font-medium text-zinc-900 outline-none focus:border-zinc-400"
         >
           {statuses.map((s) => (
             <option key={s} value={s}>
@@ -126,20 +132,29 @@ export function TaskRow({
         </select>
       </div>
 
-      <div className="min-w-0 flex justify-end gap-2">
+      <div className="min-w-0 flex items-center justify-end">
         <button
           type="button"
-          onClick={onEdit}
-          className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleToday();
+          }}
+          onDoubleClick={(e) => e.stopPropagation()}
+          aria-pressed={inToday}
+          aria-label={inToday ? "Remove from Today" : "Add to Today"}
+          title="Today"
+          className={
+            "inline-flex h-6 w-6 items-center justify-center rounded-full border transition-colors hover:bg-zinc-50 " +
+            (inToday ? "border-zinc-900" : "border-zinc-200")
+          }
         >
-          Edit
-        </button>
-        <button
-          type="button"
-          onClick={onDelete}
-          className="h-9 rounded-lg border border-red-200 bg-white px-3 text-sm font-medium text-red-700 hover:bg-red-50"
-        >
-          Delete
+          <span
+            aria-hidden="true"
+            className={
+              "h-2 w-2 rounded-full transition-colors " +
+              (inToday ? "bg-zinc-900" : "bg-transparent")
+            }
+          />
         </button>
       </div>
     </div>

@@ -18,6 +18,7 @@ export function Drawer({ open, onClose }: { open: boolean; onClose: () => void }
 
   if (!open) return null;
 
+  const isToday = pathname === "/today";
   const isManage = pathname === "/manage";
 
   return (
@@ -50,6 +51,24 @@ export function Drawer({ open, onClose }: { open: boolean; onClose: () => void }
         </div>
 
         <nav className="p-2">
+          <Link
+            href="/today"
+            onClick={onClose}
+            className={`flex items-center rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+              isToday ? "bg-zinc-900 text-white" : "text-zinc-800 hover:bg-zinc-100"
+            }`}
+          >
+            Today
+            <span
+              className={
+                "ml-auto hidden items-center rounded-md border px-1.5 py-0.5 text-[10px] font-semibold md:inline-flex " +
+                (isToday ? "border-white/20 bg-white/10 text-white" : "border-zinc-200 bg-white text-zinc-700")
+              }
+            >
+              t
+            </span>
+          </Link>
+
           <Link
             href="/manage"
             onClick={onClose}
